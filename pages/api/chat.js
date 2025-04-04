@@ -1,71 +1,34 @@
-import { useState } from 'react';
+// /pages/api/chat.js
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).end();
 
-export default function Home() {
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([
-    {
-      sender: 'ai',
-      text: `Welcome to CoCreator AI. You'll learn how to create value with others through the 7 Principles of Complete Co-Creation. Let's begin with Principle 1: Awareness.`
-    }
-  ]);
+  const { message } = req.body;
 
-  const suggestions = [
-    'Give me a business example of Principle 1.',
-    'How can I apply this in a leadership team?',
-    'What if I face resistance to change?'
-  ];
+  const prompt = `
+You are a practical, business-oriented learning coach based on the book "The 7 Principles of Complete Co-Creation."
+Help the user understand and apply Principle 1: Awareness in the context of business, innovation, leadership, creating change, and value creation.
+Use a clear, results-driven tone. Offer examples and practical advice. Avoid spiritual or abstract language.
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    setMessages([...messages, { sender: 'user', text: input }]);
-    setInput('');
+User's question: "${message}"
+`;
 
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: input }),
-    });
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: message }
+      ],
+      temperature: 0.7
+    })
+  });
 
-    const data = await res.json();
-    setMessages((prev) => [...prev, { sender: 'ai', text: data.reply }]);
-  };
-
-  return (
-    <div style={{ maxWidth: 600, margin: '2rem auto', fontFamily: 'sans-serif' }}>
-      <h1>CoCreator AI</h1>
-
-      <div style={{ border: '1px solid #ddd', padding: 16, marginBottom: 16, minHeight: 200 }}>
-        {messages.map((msg, idx) => (
-          <div key={idx} style={{ margin: '8px 0' }}>
-            <strong>{msg.sender === 'ai' ? 'AI:' : 'You:'}</strong> {msg.text}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        {suggestions.map((sug, idx) => (
-          <button
-            key={idx}
-            onClick={() => setInput(sug)}
-            style={{ border: '1px solid #ccc', padding: '6px 12px', cursor: 'pointer' }}
-          >
-            {sug}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input
-          style={{ flex: 1, padding: '8px', border: '1px solid #ccc' }}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask something..."
-        />
-        <button onClick={handleSend} style={{ padding: '8px 12px' }}>
-          Send
-        </button>
-      </div>
-    </div>
-  );
+  const data = await response.json();
+  const reply = data.choices?.[0]?.message?.content;
+  res.status(200).json({ reply });
 }
